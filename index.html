@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JEE Anti-Cheat Backlog Tracker (UTC Verified)</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --green: #22c55e;
+    --red: #ef4444;
+    --amber: #f59e0b;
+  }
+  * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+  }
+  .container {
+    width: 100%;
+    max-width: 680px;
+  }
+  .header {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .header h1 {
+    margin: 0 0 8px 0;
+    font-size: 1.25rem;
+    color: var(--accent);
+  }
+  .clock-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .clock-box {
+    background: #0b1120;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+  }
+  .clock-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+  .clock-val {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .sync-badge {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 0.78rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .sync-ok { background: rgba(34, 197, 94, 0.15); color: var(--green); border: 1px solid rgba(34, 197, 94, 0.4); }
+  .sync-warn { background: rgba(245, 158, 11, 0.15); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.4); }
+  .sync-err { background: rgba(239, 68, 68, 0.15); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.4); }
+
+  .mode-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .mode-btn {
+    flex: 1;
+    min-width: 140px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mode-btn.active {
+    background: var(--accent);
+    color: #0f172a;
+    border-color: var(--accent);
+  }
+  .mode-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .progress-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .progress-top {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .bar-bg {
+    width: 100%;
+    height: 10px;
+    background: #0b1120;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--green);
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+
+  .task-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: all 0.2s;
+  }
+  .task-card.active-card {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.3);
+  }
+  .task-card.completed-card {
+    border-color: rgba(34, 197, 94, 0.45);
+    background: rgba(30, 41, 59, 0.7);
+  }
+  .task-card.missed-card {
+    border-color: rgba(239, 68, 68, 0.45);
+  }
+  .task-card.locked-card {
+    opacity: 0.55;
+    text-align: center;
+    padding: 18px;
+    border-style: dashed;
+  }
+
+  .task-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .step-tag {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #0b1120;
+    color: var(--accent);
+  }
+  .time-tag {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .task-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 4px 0 6px 0;
+  }
+  .task-desc {
+    font-size: 0.88rem;
+    color: var(--muted);
+    margin: 0 0 12px 0;
+  }
+  .countdown-box {
+    background: #0b1120;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .countdown-label {
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .countdown-val {
+    font-size: 1.15rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .btn-complete {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    background: var(--green);
+    color: #052e16;
+    transition: transform 0.1s, opacity 0.2s;
+  }
+  .btn-complete:active { transform: scale(0.99); }
+  .btn-complete:disabled {
+    background: #334155;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+  .stamp {
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #0b1120;
+  }
+  .stamp.on-time { color: var(--green); border-left: 3px solid var(--green); }
+  .stamp.late { color: var(--red); border-left: 3px solid var(--red); }
+
+  .log-box {
+    margin-top: 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .log-box h3 {
+    margin: 0 0 8px 0;
+    font-size: 0.95rem;
+    color: var(--muted);
+  }
+  .log-list {
+    font-size: 0.8rem;
+    color: var(--muted);
+    max-height: 150px;
+    overflow-y: auto;
+    line-height: 1.5;
+  }
+  .integrity-note {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 12px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>JEE Study Execution Lock (UTC-Verified)</h1>
+    <div style="font-size: 0.85rem; color: var(--muted);">
+      Next task unlocks <strong>only after</strong> you complete &amp; verify the current block. Timestamps are locked against UTC network time &amp; hashed in storage.
+    </div>
+    <div class="clock-grid">
+      <div class="clock-box">
+        <div class="clock-label">Verified IST Time (UTC+5:30)</div>
+        <div class="clock-val" id="istClock">Syncing UTC...</div>
+      </div>
+      <div class="clock-box">
+        <div class="clock-label">Verified UTC Reference</div>
+        <div class="clock-val" id="utcClock">Syncing UTC...</div>
+      </div>
+    </div>
+    <div id="syncBadge" class="sync-badge sync-warn">Connecting to UTC Time Servers...</div>
+  </div>
+
+  <div class="mode-bar" id="modeBar">
+    <button class="mode-btn" id="btnHoliday" onclick="selectMode('holiday')">Holiday / Leave (7 Lectures)</button>
+    <button class="mode-btn" id="btnSchool" onclick="selectMode('school')">School Day (4 Lectures)</button>
+    <button class="mode-btn" id="btnSunday" onclick="selectMode('sunday')">Sunday (Maths + 3 Lecs)</button>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-top">
+      <span id="dayLabel">Today's Progress</span>
+      <span id="progressText">0 / 0 Completed</span>
+    </div>
+    <div class="bar-bg"><div class="bar-fill" id="progressBar"></div></div>
+  </div>
+
+  <div id="tasksContainer"></div>
+
+  <div class="log-box">
+    <h3>Tamper-Evident History &amp; Audit Log</h3>
+    <div class="log-list" id="auditLog">No completed days recorded yet.</div>
+  </div>
+
+  <div class="integrity-note">
+    Anti-Cheat Active: Device clock manipulation is detected via UTC server offset &amp; monotonic timer. Changing device time locks completion buttons until re-synced.
+  </div>
+</div>
+
+<script>
+const SCHEDULES = {
+  holiday: [
+    { id: 'h1', title: 'Organic Chemistry — Lecture 1 (New Daily)', desc: '1.5x speed (1h 20m) + DPP & notes (25m)', start: '08:30', end: '10:15' },
+    { id: 'h2', title: 'Organic Chemistry — Lecture 2 (Backlog)', desc: '1.5x speed (1h 20m) + DPP & notes (25m)', start: '10:15', end: '12:00' },
+    { id: 'h3', title: 'Physics — Lecture 1 (Backlog)', desc: 'Lunch done. 1.5x speed + DPP & notes', start: '13:15', end: '15:00' },
+    { id: 'h4', title: 'Physics — Lecture 2 (Backlog)', desc: '1.5x speed + DPP & notes', start: '15:00', end: '16:45' },
+    { id: 'h5', title: 'Physics — Lecture 3 (Backlog)', desc: 'Evening tea break done. 1.5x speed + DPP & notes', start: '17:15', end: '19:00' },
+    { id: 'h6', title: 'Physics — Lecture 4 (Backlog)', desc: '1.5x speed + DPP & notes', start: '19:00', end: '20:45' },
+    { id: 'h7', title: 'Organic Chemistry — Lecture 3 (Backlog Bonus)', desc: 'Dinner done. Final 1h 45m sprint block', start: '21:30', end: '23:15' }
+  ],
+  school: [
+    { id: 's1', title: 'Organic Chemistry — Morning Lecture (New Daily)', desc: 'Before 8:00 AM school. 1.5x speed + DPP & notes', start: '05:30', end: '07:15' },
+    { id: 's2', title: 'Physics — Lecture 1 (Backlog)', desc: 'Post-school block. 1.5x speed + DPP & notes', start: '15:45', end: '17:30' },
+    { id: 's3', title: 'Physics — Lecture 2 (Backlog)', desc: 'No break transition. 1.5x speed + DPP & notes', start: '17:30', end: '19:15' },
+    { id: 's4', title: 'Physics — Lecture 3 (Backlog)', desc: 'Final Physics block of the day. 1.5x speed + DPP & notes', start: '19:15', end: '21:00' }
+  ],
+  sunday: [
+    { id: 'u1', title: 'Mathematics — Full Chapter One-Shot', desc: '6-hour deep lecture + formula notes', start: '07:00', end: '13:00' },
+    { id: 'u2', title: 'Mathematics — Full-Chapter JEE Main PYQs Test', desc: '3-hour timed problem solving & analysis', start: '14:00', end: '17:00' },
+    { id: 'u3', title: 'Physics / Organic Backlog — Lecture 1', desc: '1.5x speed + DPP & notes', start: '17:30', end: '19:15' },
+    { id: 'u4', title: 'Physics / Organic Backlog — Lecture 2', desc: '1.5x speed + DPP & notes', start: '19:15', end: '21:00' },
+    { id: 'u5', title: 'Physics / Organic Backlog — Lecture 3', desc: '1.5x speed + DPP & notes', start: '21:00', end: '22:45' }
+  ]
+};
+
+let utcOffsetMs = 0;
+let syncPerfMs = 0;
+let syncBaseUtcMs = 0;
+let isUtcVerified = false;
+let clockTampered = false;
+
+async function syncUtcTime() {
+  const badge = document.getElementById('syncBadge');
+  const endpoints = [
+    {
+      url: 'https://worldtimeapi.org/api/timezone/Etc/UTC',
+      parse: async (res) => new Date((await res.json()).utc_datetime).getTime()
+    },
+    {
+      url: 'https://timeapi.io/api/Time/current/zone?timeZone=UTC',
+      parse: async (res) => new Date((await res.json()).dateTime + 'Z').getTime()
+    }
+  ];
+
+  for (const ep of endpoints) {
+    try {
+      const t0 = performance.now();
+      const res = await fetch(ep.url, { cache: 'no-store' });
+      const t1 = performance.now();
+      if (!res.ok) continue;
+      const serverUtc = await ep.parse(res);
+      if (!isNaN(serverUtc)) {
+        syncBaseUtcMs = serverUtc + (t1 - t0) / 2;
+        syncPerfMs = performance.now();
+        utcOffsetMs = syncBaseUtcMs - Date.now();
+        isUtcVerified = true;
+        clockTampered = false;
+        badge.className = 'sync-badge sync-ok';
+        badge.textContent = 'UTC Verified via Network Time Server (Anti-Cheat Locked)';
+        return;
+      }
+    } catch (e) {}
+  }
+
+  syncBaseUtcMs = Date.now();
+  syncPerfMs = performance.now();
+  utcOffsetMs = 0;
+  isUtcVerified = false;
+  badge.className = 'sync-badge sync-warn';
+  badge.textContent = 'Offline Mode: Monotonic Timer Active (Connect Internet for UTC Verification)';
+}
+
+function getTrueUtcMs() {
+  const monotonicUtc = syncBaseUtcMs + (performance.now() - syncPerfMs);
+  const expectedDeviceNow = monotonicUtc - utcOffsetMs;
+  if (Math.abs(Date.now() - expectedDeviceNow) > 15000) {
+    clockTampered = true;
+    const badge = document.getElementById('syncBadge');
+    badge.className = 'sync-badge sync-err';
+    badge.textContent = 'CLOCK TAMPER DETECTED! Device time changed. Reload with internet to re-verify UTC.';
+  }
+  return monotonicUtc;
+}
+
+function getIstParts(utcMs) {
+  const d = new Date(utcMs + 19800000);
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const min = String(d.getUTCMinutes()).padStart(2, '0');
+  const ss = String(d.getUTCSeconds()).padStart(2, '0');
+  return {
+    dateKey: `${yyyy}-${mm}-${dd}`,
+    timeStr: `${hh}:${min}:${ss}`,
+    dayOfWeek: d.getUTCDay()
+  };
+}
+
+function parseIstTargetMs(dateKey, hhmm) {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const [hh, mm] = hhmm.split(':').map(Number);
+  return Date.UTC(y, m - 1, d, hh, mm, 0) - 19800000;
+}
+
+const STORAGE_KEY = 'jee_anticheat_tracker_v1';
+const SALT = 'PRANAV_JEE_2027_UTC_LOCK_9941';
+
+function computeSignature(obj) {
+  const raw = JSON.stringify(obj) + '|' + SALT;
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { days: {}, maxSeenUtc: 0 };
+    const parsed = JSON.parse(raw);
+    if (parsed.sig !== computeSignature(parsed.payload)) {
+      alert('Warning: LocalStorage tampering detected! Corrupted records were flagged.');
+      return { days: {}, maxSeenUtc: 0, tampered: true };
+    }
+    return parsed.payload;
+  } catch (e) {
+    return { days: {}, maxSeenUtc: 0 };
+  }
+}
+
+function saveState(payload) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ payload, sig: computeSignature(payload) }));
+}
+
+let appState = loadState();
+
+function ensureTodayRecord(istInfo) {
+  const nowUtc = getTrueUtcMs();
+  if (appState.maxSeenUtc && nowUtc < appState.maxSeenUtc - 60000) {
+    clockTampered = true;
+  } else if (nowUtc > (appState.maxSeenUtc || 0)) {
+    appState.maxSeenUtc = nowUtc;
+  }
+
+  const key = istInfo.dateKey;
+  if (!appState.days[key]) {
+    let defaultMode = 'school';
+    if (istInfo.dayOfWeek === 0) defaultMode = 'sunday';
+    else if (key === '2026-11-21') defaultMode = 'holiday';
+
+    appState.days[key] = { mode: defaultMode, modeLocked: false, completed: {} };
+    saveState(appState);
+  }
+  return appState.days[key];
+}
+
+function selectMode(mode) {
+  const istInfo = getIstParts(getTrueUtcMs());
+  const rec = ensureTodayRecord(istInfo);
+  if (rec.modeLocked || Object.keys(rec.completed).length > 0) return;
+  rec.mode = mode;
+  saveState(appState);
+  render();
+}
+
+function completeTask(taskId) {
+  if (clockTampered) {
+    alert('Cannot complete task while system clock tamper is detected. Re-sync UTC first.');
+    return;
+  }
+  const nowUtc = getTrueUtcMs();
+  const istInfo = getIstParts(nowUtc);
+  const rec = ensureTodayRecord(istInfo);
+  const tasks = SCHEDULES[rec.mode];
+  const idx = tasks.findIndex(t => t.id === taskId);
+  if (idx === -1 || (idx > 0 && !rec.completed[tasks[idx - 1].id]) || rec.completed[taskId]) return;
+
+  const task = tasks[idx];
+  const startMs = parseIstTargetMs(istInfo.dateKey, task.start);
+  const endMs = parseIstTargetMs(istInfo.dateKey, task.end);
+
+  if (nowUtc < startMs - 10 * 60000) {
+    alert('Too early! You cannot mark this lecture complete before its scheduled slot begins.');
+    return;
+  }
+
+  rec.completed[taskId] = {
+    completedUtc: nowUtc,
+    completedIstStr: istInfo.timeStr,
+    onTime: nowUtc <= endMs,
+    utcVerified: isUtcVerified
+  };
+  rec.modeLocked = true;
+  appState.maxSeenUtc = Math.max(appState.maxSeenUtc || 0, nowUtc);
+  saveState(appState);
+  render();
+}
+
+function formatDuration(ms) {
+  const totalSec = Math.floor(Math.abs(ms) / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = (n) => String(n).padStart(2, '0');
+  return h > 0 ? `${h}h ${pad(m)}m ${pad(s)}s` : `${pad(m)}m ${pad(s)}s`;
+}
+
+function render() {
+  const nowUtc = getTrueUtcMs();
+  const istInfo = getIstParts(nowUtc);
+  const rec = ensureTodayRecord(istInfo);
+
+  document.getElementById('istClock').textContent = `${istInfo.dateKey} | ${istInfo.timeStr}`;
+  const u = new Date(nowUtc);
+  document.getElementById('utcClock').textContent = `${u.getUTCFullYear()}-${String(u.getUTCMonth()+1).padStart(2,'0')}-${String(u.getUTCDate()).padStart(2,'0')} | ${String(u.getUTCHours()).padStart(2,'0')}:${String(u.getUTCMinutes()).padStart(2,'0')}:${String(u.getUTCSeconds()).padStart(2,'0')} UTC`;
+
+  const hasProgress = rec.modeLocked || Object.keys(rec.completed).length > 0;
+  ['holiday', 'school', 'sunday'].forEach(m => {
+    const btn = document.getElementById('btn' + m.charAt(0).toUpperCase() + m.slice(1));
+    btn.classList.toggle('active', rec.mode === m);
+    btn.disabled = hasProgress && rec.mode !== m;
+  });
+
+  const tasks = SCHEDULES[rec.mode];
+  const doneCount = Object.keys(rec.completed).length;
+  document.getElementById('dayLabel').textContent = `Date: ${istInfo.dateKey} (${rec.mode.toUpperCase()})`;
+  document.getElementById('progressText').textContent = `${doneCount} / ${tasks.length} Completed`;
+  document.getElementById('progressBar').style.width = `${(doneCount / tasks.length) * 100}%`;
+
+  const container = document.getElementById('tasksContainer');
+  container.innerHTML = '';
+
+  let activeIndex = tasks.findIndex(t => !rec.completed[t.id]);
+  if (activeIndex === -1) activeIndex = tasks.length;
+
+  tasks.forEach((task, idx) => {
+    const doneData = rec.completed[task.id];
+    if (doneData) {
+      const card = document.createElement('div');
+      card.className = `task-card completed-card ${doneData.onTime ? '' : 'missed-card'}`;
+      card.innerHTML = `
+        <div class="task-top">
+          <span class="step-tag">Step ${idx + 1} • Completed</span>
+          <span class="time-tag">Window: ${task.start} – ${task.end} IST</span>
+        </div>
+        <div class="task-title">${task.title}</div>
+        <div class="stamp ${doneData.onTime ? 'on-time' : 'late'}">
+          ${doneData.onTime ? '✔ Completed ON TIME' : '⚠ Completed LATE (Past Deadline)'} at <strong>${doneData.completedIstStr} IST</strong>
+          ${doneData.utcVerified ? ' [UTC Verified]' : ' [Offline Monotonic]'}
+        </div>
+      `;
+      container.appendChild(card);
+      return;
+    }
+
+    if (idx === activeIndex) {
+      const startMs = parseIstTargetMs(istInfo.dateKey, task.start);
+      const endMs = parseIstTargetMs(istInfo.dateKey, task.end);
+      const remainingToDeadline = endMs - nowUtc;
+      const untilStart = startMs - nowUtc;
+
+      let countdownLabel = '';
+      let countdownVal = '';
+      let countdownColor = 'var(--accent)';
+
+      if (untilStart > 0) {
+        countdownLabel = 'Starts in:';
+        countdownVal = formatDuration(untilStart);
+        countdownColor = 'var(--amber)';
+      } else if (remainingToDeadline >= 0) {
+        countdownLabel = 'Time Left to Finish Within Deadline:';
+        countdownVal = formatDuration(remainingToDeadline);
+        countdownColor = remainingToDeadline < 15 * 60000 ? 'var(--amber)' : 'var(--green)';
+      } else {
+        countdownLabel = 'Overdue By:';
+        countdownVal = '-' + formatDuration(remainingToDeadline);
+        countdownColor = 'var(--red)';
+      }
+
+      const tooEarly = untilStart > 10 * 60000;
+      const card = document.createElement('div');
+      card.className = 'task-card active-card';
+      card.innerHTML = `
+        <div class="task-top">
+          <span class="step-tag">Current Active Task (${idx + 1} of ${tasks.length})</span>
+          <span class="time-tag">Target: ${task.start} – ${task.end} IST</span>
+        </div>
+        <div class="task-title">${task.title}</div>
+        <div class="task-desc">${task.desc}</div>
+        <div class="countdown-box">
+          <span class="countdown-label">${countdownLabel}</span>
+          <span class="countdown-val" style="color: ${countdownColor}">${countdownVal}</span>
+        </div>
+        <button class="btn-complete" onclick="completeTask('${task.id}')" ${tooEarly || clockTampered ? 'disabled' : ''}>
+          ${clockTampered ? 'Locked (Clock Tamper Detected)' : (tooEarly ? 'Unlocks 10m Before Slot Starts' : '✔ Mark Completed & Unlock Next Task')}
+        </button>
+      `;
+      container.appendChild(card);
+      return;
+    }
+
+    const locked = document.createElement('div');
+    locked.className = 'task-card locked-card';
+    locked.innerHTML = `
+      <div style="font-weight: 700; color: var(--muted); font-size: 0.9rem;">
+        🔒 Step ${idx + 1} Locked
+      </div>
+      <div style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;">
+        Complete Step ${idx} first to reveal what to do next and see your remaining time.
+      </div>
+    `;
+    container.appendChild(locked);
+  });
+
+  if (activeIndex === tasks.length) {
+    const doneBanner = document.createElement('div');
+    doneBanner.className = 'task-card completed-card';
+    doneBanner.style.textAlign = 'center';
+    doneBanner.innerHTML = `
+      <div style="font-size: 1.15rem; font-weight: 800; color: var(--green);">All ${tasks.length} Blocks Completed for ${istInfo.dateKey}!</div>
+      <div style="font-size: 0.85rem; color: var(--muted); margin-top: 6px;">Your timestamps are permanently locked in storage. Rest up for tomorrow.</div>
+    `;
+    container.appendChild(doneBanner);
+  }
+
+  const logEl = document.getElementById('auditLog');
+  const dayKeys = Object.keys(appState.days).sort().reverse();
+  if (dayKeys.length === 0) {
+    logEl.textContent = 'No records yet.';
+  } else {
+    logEl.innerHTML = dayKeys.map(dk => {
+      const d = appState.days[dk];
+      const total = SCHEDULES[d.mode].length;
+      const cList = Object.values(d.completed);
+      const onTimeCount = cList.filter(x => x.onTime).length;
+      return `<div><strong>${dk}</strong> [${d.mode.toUpperCase()}]: ${cList.length}/${total} done (${onTimeCount} on-time)</div>`;
+    }).join('');
+  }
+}
+
+syncUtcTime().then(() => render());
+setInterval(render, 1000);
+setInterval(syncUtcTime, 5 * 60 * 1000);
+</script>
+</body>
+</html>
